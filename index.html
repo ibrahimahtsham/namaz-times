@@ -16,6 +16,8 @@
     --tag-bg: #222; --tag-text: #aaa;
     --active-bg: #fff; --active-text: #000;
     --toggle-bg: #222; --toggle-dot: #fff;
+    --green-bg: rgba(34,197,94,.16); --green-border: rgba(34,197,94,.4); --green-text: #4ade80;
+    --red-bg: rgba(239,68,68,.16); --red-border: rgba(239,68,68,.4); --red-text: #f87171;
   }
   [data-theme="light"] {
     --bg: #f5f5f5; --card: #fff; --border: #e0e0e0;
@@ -23,6 +25,8 @@
     --tag-bg: #eee; --tag-text: #666;
     --active-bg: #000; --active-text: #fff;
     --toggle-bg: #ddd; --toggle-dot: #000;
+    --green-text: #15803d;
+    --red-text: #b91c1c;
   }
 
   body {
@@ -94,6 +98,8 @@
     font-family: 'Inter', sans-serif;
     margin-top: 6px;
   }
+  .hero.praying-now .hero-prayer,
+  .hero.praying-now .countdown { color: var(--green-text); }
 
   /* ─── Date ─── */
   .date-bar {
@@ -113,16 +119,40 @@
     transition: opacity .3s;
   }
   .prayer-row.passed { opacity: .35; }
-  .prayer-row.active {
+
+  .prayer-row.window-green,
+  .prayer-row.window-red,
+  .prayer-row.window-next {
     opacity: 1;
-    background: var(--active-bg);
-    color: var(--active-text);
     border-radius: 12px;
     padding: 16px 16px;
     margin: 4px -16px;
     border-bottom-color: transparent;
   }
-  .prayer-row.active + .prayer-row { border-top: none; }
+  .prayer-row.window-green + .prayer-row,
+  .prayer-row.window-red + .prayer-row,
+  .prayer-row.window-next + .prayer-row { border-top: none; }
+
+  .prayer-row.window-next { background: var(--active-bg); color: var(--active-text); }
+  .prayer-row.window-next .time-col,
+  .prayer-row.window-next .leave-col { color: var(--active-text); }
+  .prayer-row.window-next .time-col { opacity: .7; }
+  .prayer-row.window-next .col-label { color: var(--active-text); opacity: .5; }
+  .prayer-row.window-next .offset-tag { background: rgba(128,128,128,.25); color: var(--active-text); }
+
+  .prayer-row.window-green { background: var(--green-bg); box-shadow: inset 0 0 0 1px var(--green-border); }
+  .prayer-row.window-green .offset-tag { background: rgba(34,197,94,.15); color: var(--green-text); }
+
+  .prayer-row.window-red { background: var(--red-bg); box-shadow: inset 0 0 0 1px var(--red-border); }
+  .prayer-row.window-red .offset-tag { background: rgba(239,68,68,.15); color: var(--red-text); }
+
+  .status-pill {
+    font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px;
+    letter-spacing: .3px; text-transform: uppercase;
+  }
+  .status-pill.green { background: var(--green-text); color: #06280f; }
+  .status-pill.red { background: var(--red-text); color: #2b0705; }
 
   .prayer-name {
     font-weight: 600; font-size: 16px;
@@ -134,10 +164,6 @@
     padding: 2px 6px; border-radius: 4px;
     letter-spacing: .3px;
   }
-  .prayer-row.active .offset-tag {
-    background: rgba(128,128,128,.25);
-    color: var(--active-text);
-  }
 
   .time-col {
     text-align: right; font-size: 14px;
@@ -145,7 +171,6 @@
     font-weight: 500; color: var(--muted);
     line-height: 1.1;
   }
-  .prayer-row.active .time-col { color: var(--active-text); opacity: .7; }
 
   .leave-col {
     text-align: right; font-size: 16px;
@@ -153,7 +178,6 @@
     font-weight: 700;
     min-width: 82px;
   }
-  .prayer-row.active .leave-col { color: var(--active-text); }
 
   .col-label {
     display: block; font-size: 9px;
@@ -162,7 +186,6 @@
     font-weight: 500; color: var(--muted);
     margin-bottom: 2px;
   }
-  .prayer-row.active .col-label { color: var(--active-text); opacity: .5; }
 
   /* ─── Footer ─── */
   .footer {
@@ -186,8 +209,8 @@
       <button class="toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
     </div>
 
-    <div class="hero">
-      <div class="hero-label">Time until</div>
+    <div class="hero" id="hero">
+      <div class="hero-label" id="heroLabel">Time until</div>
       <div class="hero-prayer" id="nextPrayer">—</div>
       <div class="hero-time" id="nextTime"></div>
       <div class="countdown" id="countdown">--:--:--</div>
@@ -222,56 +245,98 @@ function parseTime(str) {
   return d;
 }
 
-function addMin(timeStr, min) {
-  const d = parseTime(timeStr);
-  d.setMinutes(d.getMinutes() + min);
+function getTimes(p) {
+  const azan = parseTime(p.azan);
+  const leave = new Date(azan);
+  leave.setMinutes(leave.getMinutes() + p.offset);
+  return { azan, leave };
+}
+
+function formatTime(d) {
   let h = d.getHours(), m = d.getMinutes();
   const p = h >= 12 ? 'PM' : 'AM';
   h = h % 12 || 12;
   return h + ':' + String(m).padStart(2, '0') + ' ' + p;
 }
 
+let firstRender = true;
+let lastCurIdx = null;
+
 function render() {
   const now = new Date();
   const container = document.getElementById('prayers');
   container.innerHTML = '';
 
-  let nextIdx = -1;
-  for (let i = 0; i < prayers.length; i++) {
-    if (now < parseTime(prayers[i].azan)) { nextIdx = i; break; }
+  const times = prayers.map(getTimes);
+
+  // The prayer whose window we're currently in (or just missed): the most
+  // recent one whose azan has already started.
+  let curIdx = -1;
+  for (let i = prayers.length - 1; i >= 0; i--) {
+    if (now >= times[i].azan) { curIdx = i; break; }
+  }
+  const curStatus = curIdx === -1 ? null : (now < times[curIdx].leave ? 'active' : 'missed');
+
+  if (firstRender) {
+    lastCurIdx = curIdx;
+    firstRender = false;
+  } else if (curIdx !== lastCurIdx && curIdx !== -1) {
+    playAzanAlert();
+    lastCurIdx = curIdx;
   }
 
+  const nextIdx = times.findIndex(t => now < t.azan);
+
   prayers.forEach((p, i) => {
-    const passed = nextIdx === -1 ? true : i < nextIdx;
-    const active = i === nextIdx;
+    const { azan, leave } = times[i];
+    let rowClass = '';
+    let pill = '';
+    if (i < curIdx) {
+      rowClass = 'passed';
+    } else if (i === curIdx) {
+      if (curStatus === 'active') { rowClass = 'window-green'; pill = '<span class="status-pill green">Pray now</span>'; }
+      else { rowClass = 'window-red'; pill = '<span class="status-pill red">Missed</span>'; }
+    } else if (i === nextIdx && curStatus !== 'active') {
+      rowClass = 'window-next';
+    }
+
     const row = document.createElement('div');
-    row.className = 'prayer-row' + (passed ? ' passed' : '') + (active ? ' active' : '');
-    const leave = addMin(p.azan, p.offset);
+    row.className = 'prayer-row' + (rowClass ? ' ' + rowClass : '');
     row.innerHTML = `
-      <div class="prayer-name">${p.name} <span class="offset-tag">+${p.offset}m</span></div>
-      <div class="time-col"><span class="col-label">Azan</span>${p.azan}</div>
-      <div class="leave-col"><span class="col-label">Leave</span>${leave}</div>
+      <div class="prayer-name">${p.name} <span class="offset-tag">+${p.offset}m</span>${pill}</div>
+      <div class="time-col"><span class="col-label">Azan</span>${formatTime(azan)}</div>
+      <div class="leave-col"><span class="col-label">Leave</span>${formatTime(leave)}</div>
     `;
     container.appendChild(row);
   });
 
-  // Countdown
+  // Hero
+  const hero = document.getElementById('hero');
+  const heroLabel = document.getElementById('heroLabel');
   const heroP = document.getElementById('nextPrayer');
   const heroT = document.getElementById('nextTime');
   const cd = document.getElementById('countdown');
 
-  if (nextIdx === -1) {
-    heroP.textContent = "Fajr (tomorrow)";
-    heroT.textContent = prayers[0].azan;
-    const tom = parseTime(prayers[0].azan);
-    tom.setDate(tom.getDate() + 1);
-    const diff = tom - now;
-    formatCountdown(cd, diff);
+  if (curStatus === 'active') {
+    hero.classList.add('praying-now');
+    heroLabel.textContent = 'Time left to leave';
+    heroP.textContent = prayers[curIdx].name;
+    heroT.textContent = 'Leave by ' + formatTime(times[curIdx].leave);
+    formatCountdown(cd, times[curIdx].leave - now);
   } else {
-    heroP.textContent = prayers[nextIdx].name;
-    heroT.textContent = "Azan at " + prayers[nextIdx].azan + " · Leave at " + addMin(prayers[nextIdx].azan, prayers[nextIdx].offset);
-    const diff = parseTime(prayers[nextIdx].azan) - now;
-    formatCountdown(cd, diff);
+    hero.classList.remove('praying-now');
+    heroLabel.textContent = 'Time until';
+    if (nextIdx === -1) {
+      heroP.textContent = "Fajr (tomorrow)";
+      heroT.textContent = prayers[0].azan;
+      const tom = new Date(times[0].azan);
+      tom.setDate(tom.getDate() + 1);
+      formatCountdown(cd, tom - now);
+    } else {
+      heroP.textContent = prayers[nextIdx].name;
+      heroT.textContent = "Azan at " + formatTime(times[nextIdx].azan) + " · Leave at " + formatTime(times[nextIdx].leave);
+      formatCountdown(cd, times[nextIdx].azan - now);
+    }
   }
 }
 
@@ -282,6 +347,44 @@ function formatCountdown(el, ms) {
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
   el.textContent = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+// ─── Azan alert sound: three synthesized beeps, no audio files ───
+let audioCtx;
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    audioCtx = new Ctx();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+document.addEventListener('click', ensureAudioCtx, { once: true });
+document.addEventListener('touchstart', ensureAudioCtx, { once: true });
+
+function playBeep(ctx, startTime, freq, duration) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, startTime);
+  gain.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+  gain.gain.linearRampToValueAtTime(0, startTime + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(startTime);
+  osc.stop(startTime + duration + 0.02);
+}
+
+function playAzanAlert() {
+  try {
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    playBeep(ctx, t0, 880, 0.15);
+    playBeep(ctx, t0 + 0.25, 880, 0.15);
+    playBeep(ctx, t0 + 0.5, 880, 0.15);
+  } catch (e) { /* audio unavailable, ignore */ }
 }
 
 function toggleTheme() {
