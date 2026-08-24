@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salah — Riyadh</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #000; --card: #111; --border: #222;
+    --text: #fff; --muted: #888; --accent: #fff;
+    --tag-bg: #222; --tag-text: #aaa;
+    --active-bg: #fff; --active-text: #000;
+    --toggle-bg: #222; --toggle-dot: #fff;
+  }
+  [data-theme="light"] {
+    --bg: #f5f5f5; --card: #fff; --border: #e0e0e0;
+    --text: #000; --muted: #666; --accent: #000;
+    --tag-bg: #eee; --tag-text: #666;
+    --active-bg: #000; --active-text: #fff;
+    --toggle-bg: #ddd; --toggle-dot: #000;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100dvh;
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 24px 16px;
+    transition: background .3s, color .3s;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container { width: 100%; max-width: 440px; }
+
+  /* ─── Header ─── */
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 32px;
+  }
+  .location { font-size: 13px; color: var(--muted); letter-spacing: .3px; }
+  .location strong { color: var(--text); font-weight: 600; }
+
+  /* Toggle */
+  .toggle {
+    width: 48px; height: 26px; border-radius: 13px;
+    background: var(--toggle-bg); cursor: pointer;
+    position: relative; transition: background .3s;
+    border: none; outline: none; flex-shrink: 0;
+  }
+  .toggle::after {
+    content: ''; position: absolute;
+    top: 3px; left: 3px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--toggle-dot);
+    transition: transform .3s, background .3s;
+  }
+  [data-theme="light"] .toggle::after { transform: translateX(22px); }
+
+  /* ─── Countdown Hero ─── */
+  .hero {
+    text-align: center;
+    margin-bottom: 36px;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-label {
+    font-size: 12px; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--muted);
+    margin-bottom: 8px; font-weight: 500;
+  }
+  .hero-prayer {
+    font-size: 28px; font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -.5px;
+  }
+  .hero-time {
+    font-size: 14px; color: var(--muted); margin-bottom: 20px;
+    font-weight: 500;
+  }
+  .countdown {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px; font-weight: 700;
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+  .countdown-unit {
+    font-size: 12px; font-weight: 500;
+    letter-spacing: 1px; color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    margin-top: 6px;
+  }
+
+  /* ─── Date ─── */
+  .date-bar {
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: var(--muted);
+    margin-bottom: 16px; font-weight: 500;
+  }
+
+  /* ─── Prayer Rows ─── */
+  .prayer-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+    transition: opacity .3s;
+  }
+  .prayer-row.passed { opacity: .35; }
+  .prayer-row.active {
+    opacity: 1;
+    background: var(--active-bg);
+    color: var(--active-text);
+    border-radius: 12px;
+    padding: 16px 16px;
+    margin: 4px -16px;
+    border-bottom-color: transparent;
+  }
+  .prayer-row.active + .prayer-row { border-top: none; }
+
+  .prayer-name {
+    font-weight: 600; font-size: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .offset-tag {
+    font-size: 10px; font-weight: 600;
+    background: var(--tag-bg); color: var(--tag-text);
+    padding: 2px 6px; border-radius: 4px;
+    letter-spacing: .3px;
+  }
+  .prayer-row.active .offset-tag {
+    background: rgba(128,128,128,.25);
+    color: var(--active-text);
+  }
+
+  .time-col {
+    text-align: right; font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500; color: var(--muted);
+    line-height: 1.1;
+  }
+  .prayer-row.active .time-col { color: var(--active-text); opacity: .7; }
+
+  .leave-col {
+    text-align: right; font-size: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    min-width: 82px;
+  }
+  .prayer-row.active .leave-col { color: var(--active-text); }
+
+  .col-label {
+    display: block; font-size: 9px;
+    text-transform: uppercase; letter-spacing: .8px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500; color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .prayer-row.active .col-label { color: var(--active-text); opacity: .5; }
+
+  /* ─── Footer ─── */
+  .footer {
+    text-align: center; margin-top: 24px;
+    font-size: 11px; color: var(--muted);
+    letter-spacing: .3px;
+  }
+
+  @media (max-width: 380px) {
+    .countdown { font-size: 40px; }
+    .hero-prayer { font-size: 24px; }
+    .prayer-name { font-size: 15px; }
+    .leave-col { font-size: 15px; min-width: 74px; }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-bar">
+      <div class="location"><strong>Riyadh</strong> · Saudi Arabia</div>
+      <button class="toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
+    </div>
+
+    <div class="hero">
+      <div class="hero-label">Time until</div>
+      <div class="hero-prayer" id="nextPrayer">—</div>
+      <div class="hero-time" id="nextTime"></div>
+      <div class="countdown" id="countdown">--:--:--</div>
+      <div class="countdown-unit">hours &nbsp; min &nbsp;&nbsp; sec</div>
+    </div>
+
+    <div class="date-bar">
+      <span>Mon, 24 Aug 2026</span>
+      <span>11 Rabi ul Awal 1448</span>
+    </div>
+
+    <div id="prayers"></div>
+
+    <div class="footer">Umm Al-Qura · Hanbali, Maliki, Shafi</div>
+  </div>
+
+<script>
+const prayers = [
+  { name: "Fajr",    azan: "4:11 AM",  offset: 20 },
+  { name: "Dhuhr",   azan: "11:56 AM", offset: 15 },
+  { name: "Asr",     azan: "3:25 PM",  offset: 15 },
+  { name: "Maghrib", azan: "6:20 PM",  offset: 5  },
+  { name: "Isha",    azan: "7:50 PM",  offset: 15 },
+];
+
+function parseTime(str) {
+  const [time, period] = str.split(' ');
+  let [h, m] = time.split(':').map(Number);
+  if (period === 'PM' && h !== 12) h += 12;
+  if (period === 'AM' && h === 12) h = 0;
+  const d = new Date(); d.setHours(h, m, 0, 0);
+  return d;
+}
+
+function addMin(timeStr, min) {
+  const d = parseTime(timeStr);
+  d.setMinutes(d.getMinutes() + min);
+  let h = d.getHours(), m = d.getMinutes();
+  const p = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + String(m).padStart(2, '0') + ' ' + p;
+}
+
+function render() {
+  const now = new Date();
+  const container = document.getElementById('prayers');
+  container.innerHTML = '';
+
+  let nextIdx = -1;
+  for (let i = 0; i < prayers.length; i++) {
+    if (now < parseTime(prayers[i].azan)) { nextIdx = i; break; }
+  }
+
+  prayers.forEach((p, i) => {
+    const passed = nextIdx === -1 ? true : i < nextIdx;
+    const active = i === nextIdx;
+    const row = document.createElement('div');
+    row.className = 'prayer-row' + (passed ? ' passed' : '') + (active ? ' active' : '');
+    const leave = addMin(p.azan, p.offset);
+    row.innerHTML = `
+      <div class="prayer-name">${p.name} <span class="offset-tag">+${p.offset}m</span></div>
+      <div class="time-col"><span class="col-label">Azan</span>${p.azan}</div>
+      <div class="leave-col"><span class="col-label">Leave</span>${leave}</div>
+    `;
+    container.appendChild(row);
+  });
+
+  // Countdown
+  const heroP = document.getElementById('nextPrayer');
+  const heroT = document.getElementById('nextTime');
+  const cd = document.getElementById('countdown');
+
+  if (nextIdx === -1) {
+    heroP.textContent = "Fajr (tomorrow)";
+    heroT.textContent = prayers[0].azan;
+    const tom = parseTime(prayers[0].azan);
+    tom.setDate(tom.getDate() + 1);
+    const diff = tom - now;
+    formatCountdown(cd, diff);
+  } else {
+    heroP.textContent = prayers[nextIdx].name;
+    heroT.textContent = "Azan at " + prayers[nextIdx].azan + " · Leave at " + addMin(prayers[nextIdx].azan, prayers[nextIdx].offset);
+    const diff = parseTime(prayers[nextIdx].azan) - now;
+    formatCountdown(cd, diff);
+  }
+}
+
+function formatCountdown(el, ms) {
+  if (ms < 0) ms = 0;
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  el.textContent = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+  html.setAttribute('data-theme', next === 'dark' ? '' : 'light');
+  if (next === 'dark') html.removeAttribute('data-theme');
+  localStorage.setItem('theme', next);
+}
+
+// Init theme
+if (localStorage.getItem('theme') === 'light') {
+  document.documentElement.setAttribute('data-theme', 'light');
+}
+
+render();
+setInterval(render, 1000);
+</script>
+</body>
+</html>
