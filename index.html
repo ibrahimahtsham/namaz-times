@@ -245,11 +245,15 @@ function parseTime(str) {
   return d;
 }
 
+const URGENT_MIN = 5; // how long after leave time the namaz is considered "starting"
+
 function getTimes(p) {
   const azan = parseTime(p.azan);
   const leave = new Date(azan);
   leave.setMinutes(leave.getMinutes() + p.offset);
-  return { azan, leave };
+  const urgentEnd = new Date(leave);
+  urgentEnd.setMinutes(urgentEnd.getMinutes() + URGENT_MIN);
+  return { azan, leave, urgentEnd };
 }
 
 function formatTime(d) {
@@ -269,13 +273,16 @@ function render() {
 
   const times = prayers.map(getTimes);
 
-  // The prayer whose window we're currently in (or just missed): the most
-  // recent one whose azan has already started.
+  // The prayer whose window we're currently tracking: the most recent one
+  // whose azan has already started.
   let curIdx = -1;
   for (let i = prayers.length - 1; i >= 0; i--) {
     if (now >= times[i].azan) { curIdx = i; break; }
   }
-  const curStatus = curIdx === -1 ? null : (now < times[curIdx].leave ? 'active' : 'missed');
+  const curStatus = curIdx === -1 ? null
+    : now < times[curIdx].leave ? 'active'
+    : now < times[curIdx].urgentEnd ? 'urgent'
+    : 'over';
 
   if (firstRender) {
     lastCurIdx = curIdx;
@@ -295,8 +302,9 @@ function render() {
       rowClass = 'passed';
     } else if (i === curIdx) {
       if (curStatus === 'active') { rowClass = 'window-green'; pill = '<span class="status-pill green">Pray now</span>'; }
-      else { rowClass = 'window-red'; pill = '<span class="status-pill red">Missed</span>'; }
-    } else if (i === nextIdx && curStatus !== 'active') {
+      else if (curStatus === 'urgent') { rowClass = 'window-red'; pill = '<span class="status-pill red">Starting</span>'; }
+      else { rowClass = 'passed'; }
+    } else if (i === nextIdx && curStatus !== 'active' && curStatus !== 'urgent') {
       rowClass = 'window-next';
     }
 
