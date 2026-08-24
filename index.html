@@ -217,6 +217,10 @@
     font-weight: 700;
     min-width: 82px;
   }
+  .jamat-sub {
+    font-size: 10px; font-weight: 500;
+    opacity: .65; margin-top: 2px;
+  }
 
   .col-label {
     display: block; font-size: 9px;
@@ -237,6 +241,8 @@
     font-size: 11px; color: var(--muted); text-decoration: underline;
     font-family: 'Inter', sans-serif; letter-spacing: .3px;
   }
+  #editModal .help-link { display: block; width: 100%; text-align: center; margin-top: 12px; }
+  #editModal .help-link[hidden] { display: none; }
 
   /* ─── Location picker modal ─── */
   .modal-overlay {
@@ -276,6 +282,18 @@
   }
   .modal-section-label:first-of-type { margin-top: 0; }
   select.search-input { cursor: pointer; }
+
+  .stepper { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .stepper-input { margin-bottom: 0; text-align: center; }
+  .stepper-input::-webkit-outer-spin-button,
+  .stepper-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .stepper-input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+  .step-btn {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    background: var(--tag-bg); border: none; color: var(--text);
+    font-size: 18px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
   .search-results { display: flex; flex-direction: column; gap: 2px; }
   .search-result-item {
     width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
@@ -359,6 +377,30 @@
 
       <div class="modal-section-label">Calculation method</div>
       <select class="search-input" id="methodSelect" onchange="onMethodChange()"></select>
+
+      <div class="modal-section-label">Travel time to mosque (minutes)</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="stepTravel(-1)" aria-label="Decrease travel time">−</button>
+        <input class="search-input stepper-input" id="travelInput" type="number" min="0" max="120" onchange="onTravelChange()">
+        <button class="step-btn" onclick="stepTravel(1)" aria-label="Increase travel time">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="editModal" hidden onclick="if(event.target===this) closeEditOffset()">
+    <div class="modal">
+      <div class="modal-header">
+        <span id="editModalTitle">Edit gap</span>
+        <button class="modal-close" onclick="closeEditOffset()" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-section-label">Minutes from Azan to Jamat</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="stepOffset(-1)" aria-label="Decrease gap">−</button>
+        <input class="search-input stepper-input" id="editOffsetInput" type="number" min="0" max="180" onkeydown="if(event.key==='Enter') saveEditOffset()">
+        <button class="step-btn" onclick="stepOffset(1)" aria-label="Increase gap">+</button>
+      </div>
+      <button class="geo-btn" onclick="saveEditOffset()">Save</button>
+      <button class="help-link" id="editResetBtn" onclick="resetEditOffset()">Reset to default</button>
     </div>
   </div>
 
@@ -369,16 +411,16 @@
         <button class="modal-close" onclick="closeHelp()" aria-label="Close">✕</button>
       </div>
       <ul class="help-list">
-        <li><strong>Azan &amp; Jamat</strong><span class="muted">Azan is the call to prayer; Jamat is when the congregation actually starts. The <code>+Nm</code> tag on each row is the gap between them — tap it to edit if your mosque's timing differs.</span></li>
+        <li><strong>Azan, Jamat &amp; Leave</strong><span class="muted">Azan is the call to prayer. Jamat is when congregation starts — azan plus the <code>+Nm</code> gap shown on each row (tap it to edit). Leave is the big time shown: jamat minus your travel time, so leaving then gets you there right as jamat starts.</span></li>
         <li><strong>Row colors</strong><span class="muted">
-          <span class="help-dot green"></span>Green — azan has started, still time to go pray.<br>
-          <span class="help-dot red"></span>Red — jamat is starting right now.<br>
+          <span class="help-dot green"></span>Green — azan has started, no rush yet.<br>
+          <span class="help-dot red"></span>Red — time to leave, or jamat has started.<br>
           <span class="help-dot amber"></span>Amber (Fajr only) — jamat has passed but you can still pray individually until sunrise.<br>
           <span class="help-dot grey"></span>Grey — this prayer's time has fully passed.
         </span></li>
         <li><strong>🔊 Test sound</strong><span class="muted">Plays the alert tone on demand — also unlocks audio playback in your browser so the real alert can play later.</span></li>
         <li><strong>🔕 / 🔔 Notifications</strong><span class="muted">Tap to allow (or mute) a browser notification each time a prayer's azan begins, in addition to the sound.</span></li>
-        <li><strong>Location &amp; method</strong><span class="muted">Tap the location name (top left) to search any city, use your current location, or change the calculation method.</span></li>
+        <li><strong>Location, method &amp; travel time</strong><span class="muted">Tap the location name (top left) to search any city, use your current location, change the calculation method, or set how many minutes it takes you to reach the mosque.</span></li>
         <li><strong>Install the app</strong><span class="muted">Use your browser's "Install app" option (desktop) or "Add to Home Screen" (mobile) to add Namaz Times as its own icon with offline support.</span></li>
       </ul>
     </div>
@@ -406,6 +448,7 @@ const METHODS = [
 let place = loadLocation();
 let methodId = loadMethod();
 let customOffsets = loadOffsets();
+let travelMin = loadTravel();
 let prayers = [];
 let sunriseTime = null;
 let firstRender = true;
@@ -454,17 +497,62 @@ function loadOffsets() {
 function saveOffsets() { localStorage.setItem('namaz_offsets', JSON.stringify(customOffsets)); }
 function getOffset(name) { return customOffsets[name] ?? OFFSETS[name]; }
 
+function loadTravel() {
+  const v = parseInt(localStorage.getItem('namaz_travel'), 10);
+  return Number.isFinite(v) && v >= 0 ? v : 5;
+}
+function onTravelChange() {
+  const input = document.getElementById('travelInput');
+  const val = parseInt(input.value, 10);
+  if (!Number.isFinite(val) || val < 0 || val > 120) { alert('Enter minutes between 0 and 120.'); input.value = travelMin; return; }
+  travelMin = val;
+  localStorage.setItem('namaz_travel', String(travelMin));
+  render();
+}
+function stepTravel(delta) {
+  const input = document.getElementById('travelInput');
+  const val = Math.min(120, Math.max(0, (parseInt(input.value, 10) || 0) + delta));
+  input.value = val;
+  onTravelChange();
+}
+
+function stepOffset(delta) {
+  const input = document.getElementById('editOffsetInput');
+  const val = Math.min(180, Math.max(0, (parseInt(input.value, 10) || 0) + delta));
+  input.value = val;
+}
+
+let editingPrayer = null;
+
 function editOffset(name) {
-  const current = getOffset(name);
-  const input = prompt(`Minutes from Azan to Jamat for ${name}:`, current);
-  if (input === null) return;
-  const val = parseInt(input, 10);
+  editingPrayer = name;
+  document.getElementById('editModalTitle').textContent = `Edit ${name} gap`;
+  document.getElementById('editOffsetInput').value = getOffset(name);
+  document.getElementById('editResetBtn').hidden = !(name in customOffsets);
+  document.getElementById('editModal').hidden = false;
+  document.getElementById('editOffsetInput').focus();
+}
+function closeEditOffset() {
+  document.getElementById('editModal').hidden = true;
+  editingPrayer = null;
+}
+function saveEditOffset() {
+  const val = parseInt(document.getElementById('editOffsetInput').value, 10);
   if (!Number.isFinite(val) || val < 0 || val > 180) { alert('Enter a number of minutes between 0 and 180.'); return; }
-  customOffsets[name] = val;
+  customOffsets[editingPrayer] = val;
   saveOffsets();
-  const p = prayers.find(pr => pr.name === name);
+  const p = prayers.find(pr => pr.name === editingPrayer);
   if (p) p.offset = val;
   render();
+  closeEditOffset();
+}
+function resetEditOffset() {
+  delete customOffsets[editingPrayer];
+  saveOffsets();
+  const p = prayers.find(pr => pr.name === editingPrayer);
+  if (p) p.offset = OFFSETS[editingPrayer];
+  render();
+  closeEditOffset();
 }
 
 function pad2(n) { return String(n).padStart(2, '0'); }
@@ -489,11 +577,12 @@ function parseTime(str) {
 
 function getTimes(p) {
   const azan = parseTime(p.azan);
-  const leave = new Date(azan);
-  leave.setMinutes(leave.getMinutes() + p.offset);
-  const urgentEnd = new Date(leave);
+  const jamat = new Date(azan);
+  jamat.setMinutes(jamat.getMinutes() + p.offset);
+  const leaveHome = new Date(Math.max(azan.getTime(), jamat.getTime() - travelMin * 60000));
+  const urgentEnd = new Date(jamat);
   urgentEnd.setMinutes(urgentEnd.getMinutes() + URGENT_MIN);
-  return { azan, leave, urgentEnd };
+  return { azan, jamat, leaveHome, urgentEnd };
 }
 
 function formatTime(d) {
@@ -577,7 +666,7 @@ function render() {
     if (now >= times[i].azan) { curIdx = i; break; }
   }
   const curStatus = curIdx === -1 ? null
-    : now < times[curIdx].leave ? 'active'
+    : now < times[curIdx].leaveHome ? 'active'
     : now < times[curIdx].urgentEnd ? 'urgent'
     : (curIdx === 0 && sunriseTime && now < sunriseTime) ? 'grace'
     : 'over';
@@ -587,21 +676,25 @@ function render() {
     firstRender = false;
   } else if (curIdx !== lastCurIdx && curIdx !== -1) {
     playAzanAlert();
-    notifyAzan(prayers[curIdx].name, formatTime(times[curIdx].leave));
+    notifyAzan(prayers[curIdx].name, formatTime(times[curIdx].leaveHome), formatTime(times[curIdx].jamat));
     lastCurIdx = curIdx;
   }
 
   const nextIdx = times.findIndex(t => now < t.azan);
 
   prayers.forEach((p, i) => {
-    const { azan, leave } = times[i];
+    const { azan, jamat, leaveHome } = times[i];
     let rowClass = '';
     let pill = '';
     if (i < curIdx) {
       rowClass = 'passed';
     } else if (i === curIdx) {
       if (curStatus === 'active') { rowClass = 'window-green'; pill = '<span class="status-pill green">Pray now</span>'; }
-      else if (curStatus === 'urgent') { rowClass = 'window-red'; pill = '<span class="status-pill red">Jamat</span>'; }
+      else if (curStatus === 'urgent') {
+        rowClass = 'window-red';
+        const pillText = now < jamat ? 'Leave now' : 'Jamat';
+        pill = `<span class="status-pill red">${pillText}</span>`;
+      }
       else if (curStatus === 'grace') { rowClass = 'window-amber'; pill = '<span class="status-pill amber">Til sunrise</span>'; }
       else { rowClass = 'passed'; }
     } else if (i === nextIdx && curStatus !== 'active' && curStatus !== 'urgent' && curStatus !== 'grace') {
@@ -613,7 +706,7 @@ function render() {
     row.innerHTML = `
       <div class="prayer-name">${p.name} <button class="offset-tag" onclick="editOffset('${p.name}')" title="Edit jamat gap">+${p.offset}m</button>${pill}</div>
       <div class="time-col"><span class="col-label">Azan</span>${formatTime(azan)}</div>
-      <div class="leave-col"><span class="col-label">Jamat</span>${formatTime(leave)}</div>
+      <div class="leave-col"><span class="col-label">Leave</span>${formatTime(leaveHome)}<div class="jamat-sub">Jamat ${formatTime(jamat)}</div></div>
     `;
     container.appendChild(row);
   });
@@ -627,10 +720,10 @@ function render() {
 
   if (curStatus === 'active') {
     hero.classList.add('praying-now');
-    heroLabel.textContent = 'Time until Jamat';
+    heroLabel.textContent = 'Leave in';
     heroP.textContent = prayers[curIdx].name;
-    heroT.textContent = 'Jamat at ' + formatTime(times[curIdx].leave);
-    formatCountdown(cd, times[curIdx].leave - now);
+    heroT.textContent = 'Leave by ' + formatTime(times[curIdx].leaveHome) + ' · Jamat at ' + formatTime(times[curIdx].jamat);
+    formatCountdown(cd, times[curIdx].leaveHome - now);
   } else {
     hero.classList.remove('praying-now');
     heroLabel.textContent = 'Time until';
@@ -642,7 +735,7 @@ function render() {
       formatCountdown(cd, tom - now);
     } else {
       heroP.textContent = prayers[nextIdx].name;
-      heroT.textContent = "Azan at " + formatTime(times[nextIdx].azan) + " · Jamat at " + formatTime(times[nextIdx].leave);
+      heroT.textContent = "Azan at " + formatTime(times[nextIdx].azan) + " · Jamat at " + formatTime(times[nextIdx].jamat);
       formatCountdown(cd, times[nextIdx].azan - now);
     }
   }
@@ -718,11 +811,11 @@ async function toggleNotifications() {
   updateNotifBtn();
 }
 
-function notifyAzan(name, jamatTimeStr) {
+function notifyAzan(name, leaveTimeStr, jamatTimeStr) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (localStorage.getItem('namaz_notify') === 'off') return;
   try {
-    new Notification(name + ' — Azan time', { body: 'Jamat at ' + jamatTimeStr, icon: 'icon-192.png' });
+    new Notification(name + ' — Azan time', { body: `Leave by ${leaveTimeStr} · Jamat at ${jamatTimeStr}`, icon: 'icon-192.png' });
   } catch (e) { /* ignore */ }
 }
 
@@ -733,6 +826,7 @@ function openLocationPicker() {
   document.getElementById('searchResults').innerHTML = '';
   document.getElementById('locationError').hidden = true;
   document.getElementById('methodSelect').value = String(methodId);
+  document.getElementById('travelInput').value = travelMin;
 }
 function closeLocationPicker() {
   document.getElementById('locationModal').hidden = true;
@@ -834,6 +928,7 @@ document.getElementById('locationLabel').innerHTML = formatLocationLabel(place);
 document.getElementById('methodSelect').innerHTML =
   METHODS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 document.getElementById('methodSelect').value = String(methodId);
+document.getElementById('travelInput').value = travelMin;
 updateNotifBtn();
 fetchTimings();
 
