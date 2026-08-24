@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Namaz Times</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🕌</text></svg>">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#000000">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap');
 
@@ -46,8 +49,22 @@
     display: flex; justify-content: space-between; align-items: center;
     margin-bottom: 32px;
   }
-  .location { font-size: 13px; color: var(--muted); letter-spacing: .3px; }
-  .location strong { color: var(--text); font-weight: 600; }
+  .location-btn {
+    background: none; border: none; cursor: pointer; padding: 0;
+    font-size: 13px; color: var(--muted); letter-spacing: .3px;
+    font-family: 'Inter', sans-serif;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .location-btn strong { color: var(--text); font-weight: 600; }
+  .location-btn .chev { font-size: 9px; opacity: .6; }
+
+  .top-bar-actions { display: flex; align-items: center; gap: 8px; }
+  .icon-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--toggle-bg); border: none; cursor: pointer;
+    font-size: 14px; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; padding: 0;
+  }
 
   /* Toggle */
   .toggle {
@@ -68,7 +85,7 @@
   /* ─── Countdown Hero ─── */
   .hero {
     text-align: center;
-    margin-bottom: 36px;
+    margin-bottom: 24px;
     padding: 28px 0;
     border-bottom: 1px solid var(--border);
   }
@@ -100,6 +117,19 @@
   }
   .hero.praying-now .hero-prayer,
   .hero.praying-now .countdown { color: var(--green-text); }
+
+  /* ─── Status banner ─── */
+  .status-banner {
+    text-align: center; font-size: 12px; color: var(--muted);
+    margin-bottom: 16px; padding: 8px 12px; border-radius: 8px;
+    background: var(--tag-bg);
+  }
+  .status-banner.error { color: var(--red-text); }
+  .status-banner[hidden] { display: none; }
+  .status-banner button {
+    background: none; border: none; color: inherit; text-decoration: underline;
+    cursor: pointer; font-size: 12px; font-family: 'Inter', sans-serif; margin-left: 6px;
+  }
 
   /* ─── Date ─── */
   .date-bar {
@@ -194,6 +224,49 @@
     letter-spacing: .3px;
   }
 
+  /* ─── Location picker modal ─── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 10;
+  }
+  .modal-overlay[hidden] { display: none; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; width: 100%; max-width: 380px;
+    max-height: 80vh; overflow-y: auto;
+  }
+  .modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px; font-weight: 600; font-size: 15px;
+  }
+  .modal-close {
+    background: none; border: none; color: var(--muted);
+    font-size: 16px; cursor: pointer; line-height: 1; padding: 4px;
+  }
+  .geo-btn {
+    width: 100%; padding: 12px; border-radius: 10px;
+    background: var(--tag-bg); color: var(--text); border: none;
+    font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; margin-bottom: 12px;
+  }
+  .geo-btn:disabled { opacity: .6; cursor: default; }
+  .search-input {
+    width: 100%; padding: 12px; border-radius: 10px;
+    background: var(--bg); border: 1px solid var(--border); color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 14px; margin-bottom: 8px;
+  }
+  .search-results { display: flex; flex-direction: column; gap: 2px; }
+  .search-result-item {
+    width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
+    background: none; border: none; color: var(--text);
+    font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer;
+  }
+  button.search-result-item:hover { background: var(--tag-bg); }
+  .search-result-item .muted { color: var(--muted); font-size: 11px; display: block; margin-top: 1px; }
+  .location-error { font-size: 12px; color: var(--red-text); margin-top: 8px; }
+  .location-error[hidden] { display: none; }
+
   @media (max-width: 380px) {
     .countdown { font-size: 40px; }
     .hero-prayer { font-size: 24px; }
@@ -205,8 +278,14 @@
 <body>
   <div class="container">
     <div class="top-bar">
-      <div class="location"><strong>Riyadh</strong> · Saudi Arabia</div>
-      <button class="toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
+      <button class="location-btn" id="locationBtn" onclick="openLocationPicker()">
+        <span id="locationLabel"><strong>Riyadh</strong> · Saudi Arabia</span>
+        <span class="chev">▾</span>
+      </button>
+      <div class="top-bar-actions">
+        <button class="icon-btn" onclick="playAzanAlert()" aria-label="Test alert sound" title="Test alert sound">🔔</button>
+        <button class="toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
+      </div>
     </div>
 
     <div class="hero" id="hero">
@@ -217,9 +296,11 @@
       <div class="countdown-unit">hours &nbsp; min &nbsp;&nbsp; sec</div>
     </div>
 
+    <div class="status-banner" id="statusBanner" hidden></div>
+
     <div class="date-bar">
-      <span>Mon, 24 Aug 2026</span>
-      <span>11 Rabi ul Awal 1448</span>
+      <span id="gregDate">—</span>
+      <span id="hijriDate">—</span>
     </div>
 
     <div id="prayers"></div>
@@ -227,14 +308,65 @@
     <div class="footer">Umm Al-Qura · Hanbali, Maliki, Shafi</div>
   </div>
 
+  <div class="modal-overlay" id="locationModal" hidden onclick="if(event.target===this) closeLocationPicker()">
+    <div class="modal">
+      <div class="modal-header">
+        <span>Choose location</span>
+        <button class="modal-close" onclick="closeLocationPicker()" aria-label="Close">✕</button>
+      </div>
+      <button class="geo-btn" id="geoBtn" onclick="useMyLocation()">📍 Use my location</button>
+      <input class="search-input" id="citySearch" type="text" placeholder="Search city…" oninput="onSearchInput()" autocomplete="off">
+      <div class="search-results" id="searchResults"></div>
+      <div class="location-error" id="locationError" hidden></div>
+    </div>
+  </div>
+
 <script>
-const prayers = [
-  { name: "Fajr",    azan: "4:11 AM",  offset: 20 },
-  { name: "Dhuhr",   azan: "11:56 AM", offset: 15 },
-  { name: "Asr",     azan: "3:25 PM",  offset: 15 },
-  { name: "Maghrib", azan: "6:20 PM",  offset: 5  },
-  { name: "Isha",    azan: "7:50 PM",  offset: 15 },
-];
+const OFFSETS = { Fajr: 20, Dhuhr: 15, Asr: 15, Maghrib: 5, Isha: 15 };
+const PRAYER_ORDER = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+const URGENT_MIN = 5; // how long the "Jamat" pill stays shown after jamat time
+const DEFAULT_LOCATION = { label: 'Riyadh · Saudi Arabia', lat: 24.68773, lon: 46.72185 };
+
+let place = loadLocation();
+let prayers = [];
+let firstRender = true;
+let lastCurIdx = null;
+let renderDateKey = null;
+let renderTimer = null;
+
+function loadLocation() {
+  try {
+    const raw = localStorage.getItem('namaz_location');
+    if (raw) {
+      const loc = JSON.parse(raw);
+      if (loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') return loc;
+    }
+  } catch (e) { /* ignore corrupt storage */ }
+  return DEFAULT_LOCATION;
+}
+
+function formatLocationLabel(loc) {
+  const parts = loc.label.split('·').map(s => s.trim());
+  if (parts.length === 2 && parts[1]) return `<strong>${parts[0]}</strong> · ${parts[1]}`;
+  return `<strong>${parts[0]}</strong>`;
+}
+
+function saveLocation(loc) {
+  place = loc;
+  localStorage.setItem('namaz_location', JSON.stringify(loc));
+  document.getElementById('locationLabel').innerHTML = formatLocationLabel(loc);
+}
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function dateKey(d) { return `${pad2(d.getDate())}-${pad2(d.getMonth() + 1)}-${d.getFullYear()}`; }
+
+function to12h(raw) {
+  const hhmm = raw.split(' ')[0]; // API sometimes appends a "(+03)" timezone suffix
+  let [h, m] = hhmm.split(':').map(Number);
+  const p = h >= 12 ? 'PM' : 'AM';
+  h = h % 12 || 12;
+  return h + ':' + pad2(m) + ' ' + p;
+}
 
 function parseTime(str) {
   const [time, period] = str.split(' ');
@@ -244,8 +376,6 @@ function parseTime(str) {
   const d = new Date(); d.setHours(h, m, 0, 0);
   return d;
 }
-
-const URGENT_MIN = 5; // how long after leave time the namaz is considered "starting"
 
 function getTimes(p) {
   const azan = parseTime(p.azan);
@@ -260,14 +390,67 @@ function formatTime(d) {
   let h = d.getHours(), m = d.getMinutes();
   const p = h >= 12 ? 'PM' : 'AM';
   h = h % 12 || 12;
-  return h + ':' + String(m).padStart(2, '0') + ' ' + p;
+  return h + ':' + pad2(m) + ' ' + p;
 }
 
-let firstRender = true;
-let lastCurIdx = null;
+// ─── Fetch prayer times (Al Adhan API, Umm al-Qura method) ───
+function showStatus(msg, isError, withRetry) {
+  const el = document.getElementById('statusBanner');
+  el.hidden = false;
+  el.className = 'status-banner' + (isError ? ' error' : '');
+  el.innerHTML = msg + (withRetry ? ' <button onclick="fetchTimings()">Retry</button>' : '');
+}
+function hideStatus() {
+  document.getElementById('statusBanner').hidden = true;
+}
+
+async function fetchTimings() {
+  const now = new Date();
+  const key = dateKey(now);
+  renderDateKey = key;
+  const cacheKey = `namaz_cache_${key}_${place.lat.toFixed(4)}_${place.lon.toFixed(4)}`;
+  showStatus('Loading prayer times…', false);
+  try {
+    const url = `https://api.aladhan.com/v1/timings/${key}?latitude=${place.lat}&longitude=${place.lon}&method=4`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Request failed');
+    const json = await res.json();
+    localStorage.setItem(cacheKey, JSON.stringify(json.data));
+    applyTimings(json.data);
+    hideStatus();
+  } catch (err) {
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch (e) { /* ignore */ }
+    if (cached) {
+      applyTimings(cached);
+      showStatus("Couldn't refresh — showing saved times.", true, true);
+    } else {
+      showStatus("Couldn't load prayer times. Check your connection.", true, true);
+    }
+  }
+}
+
+function applyTimings(data) {
+  prayers = PRAYER_ORDER.map(name => ({
+    name,
+    azan: to12h(data.timings[name]),
+    offset: OFFSETS[name],
+  }));
+  document.getElementById('gregDate').textContent =
+    `${data.date.gregorian.weekday.en}, ${data.date.gregorian.day} ${data.date.gregorian.month.en} ${data.date.gregorian.year}`;
+  document.getElementById('hijriDate').textContent =
+    `${data.date.hijri.day} ${data.date.hijri.month.en} ${data.date.hijri.year}`;
+  firstRender = true;
+  lastCurIdx = null;
+  render();
+  if (!renderTimer) renderTimer = setInterval(render, 1000);
+}
 
 function render() {
   const now = new Date();
+  if (dateKey(now) !== renderDateKey) { fetchTimings(); return; }
+  if (!prayers.length) return;
+
   const container = document.getElementById('prayers');
   container.innerHTML = '';
 
@@ -302,7 +485,7 @@ function render() {
       rowClass = 'passed';
     } else if (i === curIdx) {
       if (curStatus === 'active') { rowClass = 'window-green'; pill = '<span class="status-pill green">Pray now</span>'; }
-      else if (curStatus === 'urgent') { rowClass = 'window-red'; pill = '<span class="status-pill red">Starting</span>'; }
+      else if (curStatus === 'urgent') { rowClass = 'window-red'; pill = '<span class="status-pill red">Jamat</span>'; }
       else { rowClass = 'passed'; }
     } else if (i === nextIdx && curStatus !== 'active' && curStatus !== 'urgent') {
       rowClass = 'window-next';
@@ -313,7 +496,7 @@ function render() {
     row.innerHTML = `
       <div class="prayer-name">${p.name} <span class="offset-tag">+${p.offset}m</span>${pill}</div>
       <div class="time-col"><span class="col-label">Azan</span>${formatTime(azan)}</div>
-      <div class="leave-col"><span class="col-label">Leave</span>${formatTime(leave)}</div>
+      <div class="leave-col"><span class="col-label">Jamat</span>${formatTime(leave)}</div>
     `;
     container.appendChild(row);
   });
@@ -327,9 +510,9 @@ function render() {
 
   if (curStatus === 'active') {
     hero.classList.add('praying-now');
-    heroLabel.textContent = 'Time left to leave';
+    heroLabel.textContent = 'Time until Jamat';
     heroP.textContent = prayers[curIdx].name;
-    heroT.textContent = 'Leave by ' + formatTime(times[curIdx].leave);
+    heroT.textContent = 'Jamat at ' + formatTime(times[curIdx].leave);
     formatCountdown(cd, times[curIdx].leave - now);
   } else {
     hero.classList.remove('praying-now');
@@ -342,7 +525,7 @@ function render() {
       formatCountdown(cd, tom - now);
     } else {
       heroP.textContent = prayers[nextIdx].name;
-      heroT.textContent = "Azan at " + formatTime(times[nextIdx].azan) + " · Leave at " + formatTime(times[nextIdx].leave);
+      heroT.textContent = "Azan at " + formatTime(times[nextIdx].azan) + " · Jamat at " + formatTime(times[nextIdx].leave);
       formatCountdown(cd, times[nextIdx].azan - now);
     }
   }
@@ -395,6 +578,85 @@ function playAzanAlert() {
   } catch (e) { /* audio unavailable, ignore */ }
 }
 
+// ─── Location picker ───
+function openLocationPicker() {
+  document.getElementById('locationModal').hidden = false;
+  document.getElementById('citySearch').value = '';
+  document.getElementById('searchResults').innerHTML = '';
+  document.getElementById('locationError').hidden = true;
+}
+function closeLocationPicker() {
+  document.getElementById('locationModal').hidden = true;
+}
+
+function selectLocation(loc) {
+  saveLocation(loc);
+  closeLocationPicker();
+  fetchTimings();
+}
+
+function showLocationError(msg) {
+  const el = document.getElementById('locationError');
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+let searchDebounce;
+function onSearchInput() {
+  clearTimeout(searchDebounce);
+  const q = document.getElementById('citySearch').value.trim();
+  if (q.length < 2) { document.getElementById('searchResults').innerHTML = ''; return; }
+  searchDebounce = setTimeout(() => searchCity(q), 350);
+}
+
+async function searchCity(q) {
+  const resultsEl = document.getElementById('searchResults');
+  resultsEl.innerHTML = '<div class="search-result-item">Searching…</div>';
+  try {
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8`);
+    const json = await res.json();
+    const results = json.results || [];
+    if (!results.length) { resultsEl.innerHTML = '<div class="search-result-item">No matches</div>'; return; }
+    resultsEl.innerHTML = '';
+    results.forEach(r => {
+      const region = [r.admin1, r.country].filter(Boolean).join(', ');
+      const btn = document.createElement('button');
+      btn.className = 'search-result-item';
+      btn.innerHTML = `${r.name}<span class="muted">${region}</span>`;
+      btn.onclick = () => selectLocation({ label: `${r.name} · ${r.country || ''}`, lat: r.latitude, lon: r.longitude });
+      resultsEl.appendChild(btn);
+    });
+  } catch (e) {
+    resultsEl.innerHTML = '<div class="search-result-item">Search failed, try again</div>';
+  }
+}
+
+function useMyLocation() {
+  if (!navigator.geolocation) { showLocationError('Geolocation is not supported by this browser.'); return; }
+  const btn = document.getElementById('geoBtn');
+  btn.disabled = true; btn.textContent = 'Locating…';
+  document.getElementById('locationError').hidden = true;
+  navigator.geolocation.getCurrentPosition(
+    async (pos) => {
+      const lat = pos.coords.latitude, lon = pos.coords.longitude;
+      let label = `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`;
+      try {
+        const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+        const json = await res.json();
+        const city = json.city || json.locality;
+        if (city) label = `${city} · ${json.countryName || ''}`;
+      } catch (e) { /* keep the coordinate label */ }
+      btn.disabled = false; btn.textContent = '📍 Use my location';
+      selectLocation({ label, lat, lon });
+    },
+    (err) => {
+      btn.disabled = false; btn.textContent = '📍 Use my location';
+      showLocationError('Could not get your location: ' + err.message);
+    },
+    { timeout: 10000 }
+  );
+}
+
 function toggleTheme() {
   const html = document.documentElement;
   const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
@@ -408,8 +670,15 @@ if (localStorage.getItem('theme') === 'light') {
   document.documentElement.setAttribute('data-theme', 'light');
 }
 
-render();
-setInterval(render, 1000);
+// Init location label and kick off the first fetch
+document.getElementById('locationLabel').innerHTML = formatLocationLabel(place);
+fetchTimings();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* not fatal, app still works */ });
+  });
+}
 </script>
 </body>
 </html>
