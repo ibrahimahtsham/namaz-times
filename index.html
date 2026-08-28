@@ -140,6 +140,20 @@
     margin-bottom: 16px; font-weight: 500;
   }
 
+  .sunrise-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 2px 10px;
+    font-size: 12px; color: var(--muted);
+    transition: opacity .3s;
+  }
+  .sunrise-row.passed { opacity: .35; }
+  .sunrise-row span:first-child {
+    text-transform: uppercase; letter-spacing: .6px; font-weight: 500; font-size: 11px;
+  }
+  .sunrise-row span:last-child {
+    font-family: 'JetBrains Mono', monospace; font-weight: 500;
+  }
+
   /* ─── Prayer Rows ─── */
   .prayer-row {
     display: grid;
@@ -282,6 +296,7 @@
   }
   .modal-section-label:first-of-type { margin-top: 0; }
   select.search-input { cursor: pointer; }
+  .setting-hint { font-size: 11px; line-height: 1.45; color: var(--muted); margin: -4px 0 0; }
 
   .stepper { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
   .stepper-input { margin-bottom: 0; text-align: center; }
@@ -305,7 +320,33 @@
   .location-error { font-size: 12px; color: var(--red-text); margin-top: 8px; }
   .location-error[hidden] { display: none; }
 
+  .favorites-list { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+  .favorite-row { display: flex; align-items: center; gap: 2px; }
+  .favorite-row .search-result-item { flex: 1; }
+  .fav-remove {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 12px; padding: 8px; flex-shrink: 0;
+  }
+
   /* ─── Help modal ─── */
+  .alert-flow { display: flex; flex-direction: column; gap: 2px; }
+  .flow-step {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--tag-bg); border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .flow-step.dim { opacity: .6; }
+  .flow-icon { font-size: 18px; flex-shrink: 0; }
+  .flow-text { display: flex; flex-direction: column; gap: 1px; }
+  .flow-text strong { font-size: 13px; font-weight: 600; }
+  .flow-text .muted { font-size: 11px; color: var(--muted); }
+  .flow-arrow {
+    text-align: center; font-size: 11px; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 3px 0;
+  }
+  .flow-note { font-size: 11px; line-height: 1.5; margin: 10px 0 18px; }
+
   .help-list { list-style: none; display: flex; flex-direction: column; gap: 14px; }
   .help-list li { font-size: 13px; line-height: 1.5; }
   .help-list strong { display: block; font-size: 13px; margin-bottom: 2px; }
@@ -334,13 +375,14 @@
       <div class="top-bar-actions">
         <button class="icon-btn" onclick="playAzanAlert()" aria-label="Test alert sound" title="Test alert sound">🔊</button>
         <button class="icon-btn" id="notifBtn" onclick="toggleNotifications()" aria-label="Toggle prayer notifications" title="Toggle prayer notifications">🔕</button>
+        <button class="icon-btn" onclick="openSettings()" aria-label="Settings" title="Settings">⚙️</button>
         <button class="toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
       </div>
     </div>
 
     <div class="hero" id="hero">
       <div class="hero-label" id="heroLabel">Time until</div>
-      <div class="hero-prayer" id="nextPrayer">—</div>
+      <div class="hero-prayer" id="nextPrayer">-</div>
       <div class="hero-time" id="nextTime"></div>
       <div class="countdown" id="countdown">--:--:--</div>
       <div class="countdown-unit">hours &nbsp; min &nbsp;&nbsp; sec</div>
@@ -349,8 +391,8 @@
     <div class="status-banner" id="statusBanner" hidden></div>
 
     <div class="date-bar">
-      <span id="gregDate">—</span>
-      <span id="hijriDate">—</span>
+      <span id="gregDate">-</span>
+      <span id="hijriDate">-</span>
     </div>
 
     <div id="prayers"></div>
@@ -365,18 +407,42 @@
   <div class="modal-overlay" id="locationModal" hidden onclick="if(event.target===this) closeLocationPicker()">
     <div class="modal">
       <div class="modal-header">
-        <span>Settings</span>
+        <span>Location</span>
         <button class="modal-close" onclick="closeLocationPicker()" aria-label="Close">✕</button>
       </div>
 
-      <div class="modal-section-label">Location</div>
       <button class="geo-btn" id="geoBtn" onclick="useMyLocation()">📍 Use my location</button>
       <input class="search-input" id="citySearch" type="text" placeholder="Search city…" oninput="onSearchInput()" autocomplete="off">
       <div class="search-results" id="searchResults"></div>
       <div class="location-error" id="locationError" hidden></div>
 
+      <div class="modal-section-label">Favorites</div>
+      <button class="geo-btn" id="favToggleBtn" onclick="toggleFavorite()">☆ Save current location</button>
+      <div class="favorites-list" id="favoritesList"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal" hidden onclick="if(event.target===this) closeSettings()">
+    <div class="modal">
+      <div class="modal-header">
+        <span>Settings</span>
+        <button class="modal-close" onclick="closeSettings()" aria-label="Close">✕</button>
+      </div>
+
       <div class="modal-section-label">Calculation method</div>
       <select class="search-input" id="methodSelect" onchange="onMethodChange()"></select>
+
+      <div class="modal-section-label">High-latitude rule</div>
+      <select class="search-input" id="highLatSelect" onchange="onHighLatChange()"></select>
+      <p class="muted setting-hint">Only matters far north or south (Scandinavia, northern Canada, etc.), where summer nights get too short for Fajr/Isha to calculate normally. Leave on Default otherwise.</p>
+
+      <div class="modal-section-label">Hijri date adjustment (days)</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="stepHijriAdjust(-1)" aria-label="Decrease Hijri adjustment">−</button>
+        <input class="search-input stepper-input" id="hijriAdjustInput" type="number" min="-3" max="3" onchange="onHijriAdjustChange()">
+        <button class="step-btn" onclick="stepHijriAdjust(1)" aria-label="Increase Hijri adjustment">+</button>
+      </div>
+      <p class="muted setting-hint">The Islamic date can be off by a day depending on where the moon was sighted. Bump this +1 or −1 if yours looks wrong.</p>
 
       <div class="modal-section-label">Travel time to mosque (minutes)</div>
       <div class="stepper">
@@ -390,8 +456,14 @@
   <div class="modal-overlay" id="editModal" hidden onclick="if(event.target===this) closeEditOffset()">
     <div class="modal">
       <div class="modal-header">
-        <span id="editModalTitle">Edit gap</span>
+        <span id="editModalTitle">Edit prayer</span>
         <button class="modal-close" onclick="closeEditOffset()" aria-label="Close">✕</button>
+      </div>
+      <div class="modal-section-label">Azan time adjustment (minutes, +/-)</div>
+      <div class="stepper">
+        <button class="step-btn" onclick="stepAzanAdjust(-1)" aria-label="Decrease azan adjustment">−</button>
+        <input class="search-input stepper-input" id="editAzanInput" type="number" min="-30" max="30" onkeydown="if(event.key==='Enter') saveEditOffset()">
+        <button class="step-btn" onclick="stepAzanAdjust(1)" aria-label="Increase azan adjustment">+</button>
       </div>
       <div class="modal-section-label">Minutes from Azan to Jamat</div>
       <div class="stepper">
@@ -410,26 +482,49 @@
         <span>How to use</span>
         <button class="modal-close" onclick="closeHelp()" aria-label="Close">✕</button>
       </div>
+
+      <div class="modal-section-label">When alerts fire</div>
+      <div class="alert-flow">
+        <div class="flow-step">
+          <span class="flow-icon">🕌</span>
+          <div class="flow-text"><strong><span class="help-dot green"></span>Azan begins</strong><span class="muted">🔊 sound + 🔔 notification · row turns green</span></div>
+        </div>
+        <div class="flow-arrow">↓ <span>your jamat gap</span></div>
+        <div class="flow-step">
+          <span class="flow-icon">🚶</span>
+          <div class="flow-text"><strong><span class="help-dot red"></span>Time to leave</strong><span class="muted">🔊 sound + 🔔 notification · row turns red</span></div>
+        </div>
+        <div class="flow-arrow">↓ <span>your travel time</span></div>
+        <div class="flow-step dim">
+          <span class="flow-icon">🕋</span>
+          <div class="flow-text"><strong><span class="help-dot amber"></span>Jamat starts</strong><span class="muted">no alert, row stays red a few min, turns amber for a bit (2nd jamat chance), then fades grey</span></div>
+        </div>
+      </div>
+      <p class="muted flow-note">Needs 🔔 turned on (top-right) and only fires while this tab is open. <strong>On phones</strong> it has to be the foreground tab, since mobile browsers suspend background tabs and nothing fires while you're in another app or the screen's off. <strong>On desktop</strong> the tab can sit unfocused or minimized in the background and will still alert.</p>
+
       <ul class="help-list">
-        <li><strong>Azan, Jamat &amp; Leave</strong><span class="muted">Azan is the call to prayer. Jamat is when congregation starts — azan plus the <code>+Nm</code> gap shown on each row (tap it to edit). Leave is the big time shown: jamat minus your travel time, so leaving then gets you there right as jamat starts.</span></li>
+        <li><strong>Azan, Jamat &amp; Leave</strong><span class="muted">Azan is the call to prayer, tap its row to adjust it if your mosque's clock differs from the calculated time. Jamat is when congregation starts, azan plus the <code>+Nm</code> gap shown on each row (tap it to edit both). Leave is the big time shown: jamat minus your travel time, so leaving then gets you there right as jamat starts.</span></li>
         <li><strong>Row colors</strong><span class="muted">
-          <span class="help-dot green"></span>Green — azan has started, no rush yet.<br>
-          <span class="help-dot red"></span>Red — time to leave, or jamat has started.<br>
-          <span class="help-dot amber"></span>Amber (Fajr only) — jamat has passed but you can still pray individually until sunrise.<br>
-          <span class="help-dot grey"></span>Grey — this prayer's time has fully passed.
+          <span class="help-dot green"></span>Green, azan has started, no rush yet.<br>
+          <span class="help-dot red"></span>Red, time to leave, or jamat has started.<br>
+          <span class="help-dot amber"></span>Amber, jamat's window has passed but a second jamat is often still going nearby for another 15 min (not shown for Jumu'ah).<br>
+          <span class="help-dot grey"></span>Grey, this prayer's window has fully passed.
         </span></li>
-        <li><strong>🔊 Test sound</strong><span class="muted">Plays the alert tone on demand — also unlocks audio playback in your browser so the real alert can play later.</span></li>
-        <li><strong>🔕 / 🔔 Notifications</strong><span class="muted">Tap to allow (or mute) a browser notification each time a prayer's azan begins, in addition to the sound.</span></li>
-        <li><strong>Location, method &amp; travel time</strong><span class="muted">Tap the location name (top left) to search any city, use your current location, change the calculation method, or set how many minutes it takes you to reach the mosque.</span></li>
+        <li><strong>🔊 Test sound</strong><span class="muted">Plays the alert tone on demand, also unlocks audio playback in your browser so the real alert can play later.</span></li>
+        <li><strong>Sunrise</strong><span class="muted">Shown under Fajr, for reference.</span></li>
+        <li><strong>Jumu'ah on Fridays</strong><span class="muted">On Fridays, Dhuhr is replaced by Jumu'ah with its own azan-to-jamat gap (tap it to edit) to account for the khutbah. Its window just ends when jamat passes, no second-jamat amber.</span></li>
+        <li><strong>Location &amp; favorites</strong><span class="muted">Tap the location name (top left) to search any city, use your current location, or star it to save as a favorite for quick switching later.</span></li>
+        <li><strong>⚙️ Settings</strong><span class="muted">Calculation method, high-latitude rule (for far-north/south locations), Hijri date adjustment, and travel time to the mosque all live here.</span></li>
         <li><strong>Install the app</strong><span class="muted">Use your browser's "Install app" option (desktop) or "Add to Home Screen" (mobile) to add Namaz Times as its own icon with offline support.</span></li>
       </ul>
     </div>
   </div>
 
 <script>
-const OFFSETS = { Fajr: 25, Dhuhr: 20, Asr: 20, Maghrib: 10, Isha: 20 }; // default azan-to-jamat gaps, in minutes
+const OFFSETS = { Fajr: 25, Dhuhr: 20, Asr: 20, Maghrib: 10, Isha: 20, Jumuah: 20 }; // default azan-to-jamat gaps, in minutes
 const PRAYER_ORDER = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
 const URGENT_MIN = 5; // how long the "Jamat" pill stays shown after jamat time
+const SECOND_JAMAT_MIN = 15; // how long the amber "2nd jamat" window stays up after that, except for Jumu'ah
 const DEFAULT_LOCATION = { label: 'Riyadh · Saudi Arabia', lat: 24.68773, lon: 46.72185 };
 const METHODS = [
   { id: 4, name: 'Umm al-Qura, Makkah' },
@@ -444,15 +539,26 @@ const METHODS = [
   { id: 13, name: 'Turkey (Diyanet)' },
   { id: 15, name: 'Moonsighting Committee' },
 ];
+const HIGH_LAT_METHODS = [
+  { id: '', name: 'Default' },
+  { id: '1', name: 'Middle of the Night' },
+  { id: '2', name: 'One-Seventh' },
+  { id: '3', name: 'Angle Based' },
+];
 
 let place = loadLocation();
 let methodId = loadMethod();
 let customOffsets = loadOffsets();
+let azanAdjustments = loadAzanAdjustments();
 let travelMin = loadTravel();
+let highLatMethod = loadHighLat();
+let hijriAdjust = loadHijriAdjust();
+let locationTz = null; // IANA timezone of the selected location, set once we have a fetch response
 let prayers = [];
 let sunriseTime = null;
 let firstRender = true;
 let lastCurIdx = null;
+let lastLeaveIdx = null;
 let renderDateKey = null;
 let renderTimer = null;
 
@@ -475,13 +581,100 @@ function formatLocationLabel(loc) {
 
 function saveLocation(loc) {
   place = loc;
+  locationTz = null;
   localStorage.setItem('namaz_location', JSON.stringify(loc));
   document.getElementById('locationLabel').innerHTML = formatLocationLabel(loc);
+}
+
+function isSameLocation(a, b) {
+  return Math.abs(a.lat - b.lat) < 0.001 && Math.abs(a.lon - b.lon) < 0.001;
+}
+function loadFavorites() {
+  try {
+    const raw = localStorage.getItem('namaz_favorites');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return arr;
+    }
+  } catch (e) { /* ignore corrupt storage */ }
+  return [];
+}
+function saveFavorites(favs) { localStorage.setItem('namaz_favorites', JSON.stringify(favs)); }
+function toggleFavorite() {
+  const favs = loadFavorites();
+  const idx = favs.findIndex(f => isSameLocation(f, place));
+  if (idx === -1) favs.push({ label: place.label, lat: place.lat, lon: place.lon });
+  else favs.splice(idx, 1);
+  saveFavorites(favs);
+  renderFavorites();
+}
+function removeFavoriteAt(i) {
+  const favs = loadFavorites();
+  favs.splice(i, 1);
+  saveFavorites(favs);
+  renderFavorites();
+}
+function renderFavorites() {
+  const favs = loadFavorites();
+  const el = document.getElementById('favoritesList');
+  el.innerHTML = '';
+  if (!favs.length) {
+    el.innerHTML = '<div class="search-result-item muted">No favorites yet, use the star above to save one.</div>';
+  } else {
+    favs.forEach((f, i) => {
+      const row = document.createElement('div');
+      row.className = 'favorite-row';
+      const btn = document.createElement('button');
+      btn.className = 'search-result-item';
+      btn.textContent = f.label;
+      btn.onclick = () => selectLocation(f);
+      const rm = document.createElement('button');
+      rm.className = 'fav-remove';
+      rm.setAttribute('aria-label', 'Remove favorite');
+      rm.textContent = '✕';
+      rm.onclick = (e) => { e.stopPropagation(); removeFavoriteAt(i); };
+      row.appendChild(btn);
+      row.appendChild(rm);
+      el.appendChild(row);
+    });
+  }
+  const toggleBtn = document.getElementById('favToggleBtn');
+  const saved = favs.some(f => isSameLocation(f, place));
+  toggleBtn.textContent = saved ? '★ Saved' : '☆ Save current location';
 }
 
 function loadMethod() {
   const v = parseInt(localStorage.getItem('namaz_method'), 10);
   return METHODS.some(m => m.id === v) ? v : 4;
+}
+
+function loadHighLat() {
+  const v = localStorage.getItem('namaz_highlat');
+  return ['1', '2', '3'].includes(v) ? v : '';
+}
+function onHighLatChange() {
+  highLatMethod = document.getElementById('highLatSelect').value;
+  localStorage.setItem('namaz_highlat', highLatMethod);
+  fetchTimings();
+}
+
+function loadHijriAdjust() {
+  const v = parseInt(localStorage.getItem('namaz_hijri_adj'), 10);
+  return Number.isFinite(v) && v >= -3 && v <= 3 ? v : 0;
+}
+function onHijriAdjustChange() {
+  const input = document.getElementById('hijriAdjustInput');
+  const val = parseInt(input.value, 10);
+  if (!Number.isFinite(val) || val < -3 || val > 3) { alert('Enter a value between -3 and 3.'); input.value = hijriAdjust; return; }
+  hijriAdjust = val;
+  localStorage.setItem('namaz_hijri_adj', String(hijriAdjust));
+  fetchTimings();
+}
+function stepHijriAdjust(delta) {
+  const input = document.getElementById('hijriAdjustInput');
+  const val = Math.min(3, Math.max(-3, (parseInt(input.value, 10) || 0) + delta));
+  input.value = val;
+  onHijriAdjustChange();
 }
 
 function loadOffsets() {
@@ -496,6 +689,19 @@ function loadOffsets() {
 }
 function saveOffsets() { localStorage.setItem('namaz_offsets', JSON.stringify(customOffsets)); }
 function getOffset(name) { return customOffsets[name] ?? OFFSETS[name]; }
+
+function loadAzanAdjustments() {
+  try {
+    const raw = localStorage.getItem('namaz_azan_adjust');
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (o && typeof o === 'object') return o;
+    }
+  } catch (e) { /* ignore corrupt storage */ }
+  return {};
+}
+function saveAzanAdjustments() { localStorage.setItem('namaz_azan_adjust', JSON.stringify(azanAdjustments)); }
+function getAzanAdjust(name) { return azanAdjustments[name] ?? 0; }
 
 function loadTravel() {
   const v = parseInt(localStorage.getItem('namaz_travel'), 10);
@@ -522,13 +728,21 @@ function stepOffset(delta) {
   input.value = val;
 }
 
+function stepAzanAdjust(delta) {
+  const input = document.getElementById('editAzanInput');
+  const val = Math.min(30, Math.max(-30, (parseInt(input.value, 10) || 0) + delta));
+  input.value = val;
+}
+
 let editingPrayer = null;
 
-function editOffset(name) {
-  editingPrayer = name;
-  document.getElementById('editModalTitle').textContent = `Edit ${name} gap`;
-  document.getElementById('editOffsetInput').value = getOffset(name);
-  document.getElementById('editResetBtn').hidden = !(name in customOffsets);
+function editOffset(key) {
+  const p = prayers.find(pr => pr.offsetKey === key);
+  editingPrayer = key;
+  document.getElementById('editModalTitle').textContent = `Edit ${p ? p.name : key}`;
+  document.getElementById('editOffsetInput').value = getOffset(key);
+  document.getElementById('editAzanInput').value = getAzanAdjust(key);
+  document.getElementById('editResetBtn').hidden = !(key in customOffsets || key in azanAdjustments);
   document.getElementById('editModal').hidden = false;
   document.getElementById('editOffsetInput').focus();
 }
@@ -538,19 +752,25 @@ function closeEditOffset() {
 }
 function saveEditOffset() {
   const val = parseInt(document.getElementById('editOffsetInput').value, 10);
-  if (!Number.isFinite(val) || val < 0 || val > 180) { alert('Enter a number of minutes between 0 and 180.'); return; }
+  const azanVal = parseInt(document.getElementById('editAzanInput').value, 10);
+  if (!Number.isFinite(val) || val < 0 || val > 180) { alert('Enter a jamat gap between 0 and 180 minutes.'); return; }
+  if (!Number.isFinite(azanVal) || azanVal < -30 || azanVal > 30) { alert('Enter an azan adjustment between -30 and 30 minutes.'); return; }
   customOffsets[editingPrayer] = val;
+  azanAdjustments[editingPrayer] = azanVal;
   saveOffsets();
-  const p = prayers.find(pr => pr.name === editingPrayer);
-  if (p) p.offset = val;
+  saveAzanAdjustments();
+  const p = prayers.find(pr => pr.offsetKey === editingPrayer);
+  if (p) { p.offset = val; p.azanAdjustMin = azanVal; }
   render();
   closeEditOffset();
 }
 function resetEditOffset() {
   delete customOffsets[editingPrayer];
+  delete azanAdjustments[editingPrayer];
   saveOffsets();
-  const p = prayers.find(pr => pr.name === editingPrayer);
-  if (p) p.offset = OFFSETS[editingPrayer];
+  saveAzanAdjustments();
+  const p = prayers.find(pr => pr.offsetKey === editingPrayer);
+  if (p) { p.offset = OFFSETS[editingPrayer]; p.azanAdjustMin = 0; }
   render();
   closeEditOffset();
 }
@@ -566,23 +786,50 @@ function to12h(raw) {
   return h + ':' + pad2(m) + ' ' + p;
 }
 
+// Returns the current moment expressed as the selected location's wall-clock
+// time, but packaged as a device-local Date (matching how parseTime builds
+// prayer times below) so every comparison in the app stays self-consistent
+// regardless of which timezone the device itself is in.
+function nowAtLocation() {
+  if (!locationTz) return new Date();
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: locationTz, hour12: false,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    }).formatToParts(new Date());
+    const get = (t) => parts.find(x => x.type === t).value;
+    let hour = parseInt(get('hour'), 10);
+    if (hour === 24) hour = 0;
+    const d = new Date();
+    d.setFullYear(parseInt(get('year'), 10), parseInt(get('month'), 10) - 1, parseInt(get('day'), 10));
+    d.setHours(hour, parseInt(get('minute'), 10), parseInt(get('second'), 10), 0);
+    return d;
+  } catch (e) {
+    return new Date();
+  }
+}
+
 function parseTime(str) {
   const [time, period] = str.split(' ');
   let [h, m] = time.split(':').map(Number);
   if (period === 'PM' && h !== 12) h += 12;
   if (period === 'AM' && h === 12) h = 0;
-  const d = new Date(); d.setHours(h, m, 0, 0);
+  const d = nowAtLocation(); d.setHours(h, m, 0, 0);
   return d;
 }
 
 function getTimes(p) {
   const azan = parseTime(p.azan);
+  azan.setMinutes(azan.getMinutes() + (p.azanAdjustMin || 0));
   const jamat = new Date(azan);
   jamat.setMinutes(jamat.getMinutes() + p.offset);
   const leaveHome = new Date(Math.max(azan.getTime(), jamat.getTime() - travelMin * 60000));
   const urgentEnd = new Date(jamat);
   urgentEnd.setMinutes(urgentEnd.getMinutes() + URGENT_MIN);
-  return { azan, jamat, leaveHome, urgentEnd };
+  const graceEnd = new Date(urgentEnd);
+  graceEnd.setMinutes(graceEnd.getMinutes() + SECOND_JAMAT_MIN);
+  return { azan, jamat, leaveHome, urgentEnd, graceEnd };
 }
 
 function formatTime(d) {
@@ -604,13 +851,15 @@ function hideStatus() {
 }
 
 async function fetchTimings() {
-  const now = new Date();
+  const now = nowAtLocation();
   const key = dateKey(now);
   renderDateKey = key;
-  const cacheKey = `namaz_cache_${key}_${place.lat.toFixed(4)}_${place.lon.toFixed(4)}_${methodId}`;
+  const cacheKey = `namaz_cache_${key}_${place.lat.toFixed(4)}_${place.lon.toFixed(4)}_${methodId}_${highLatMethod}_${hijriAdjust}`;
   showStatus('Loading prayer times…', false);
   try {
-    const url = `https://api.aladhan.com/v1/timings/${key}?latitude=${place.lat}&longitude=${place.lon}&method=${methodId}`;
+    const url = `https://api.aladhan.com/v1/timings/${key}?latitude=${place.lat}&longitude=${place.lon}&method=${methodId}` +
+      (highLatMethod ? `&latitudeAdjustmentMethod=${highLatMethod}` : '') +
+      (hijriAdjust ? `&adjustment=${hijriAdjust}` : '');
     const res = await fetch(url);
     if (!res.ok) throw new Error('Request failed');
     const json = await res.json();
@@ -622,7 +871,7 @@ async function fetchTimings() {
     try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch (e) { /* ignore */ }
     if (cached) {
       applyTimings(cached);
-      showStatus("Couldn't refresh — showing saved times.", true, true);
+      showStatus("Couldn't refresh, showing saved times.", true, true);
     } else {
       showStatus("Couldn't load prayer times. Check your connection.", true, true);
     }
@@ -630,11 +879,19 @@ async function fetchTimings() {
 }
 
 function applyTimings(data) {
-  prayers = PRAYER_ORDER.map(name => ({
-    name,
-    azan: to12h(data.timings[name]),
-    offset: getOffset(name),
-  }));
+  locationTz = (data.meta && data.meta.timezone) || null;
+  const isFriday = nowAtLocation().getDay() === 5;
+  prayers = PRAYER_ORDER.map(apiName => {
+    const isJumuah = isFriday && apiName === 'Dhuhr';
+    const offsetKey = isJumuah ? 'Jumuah' : apiName;
+    return {
+      name: isJumuah ? "Jumu'ah" : apiName,
+      offsetKey,
+      azan: to12h(data.timings[apiName]),
+      offset: getOffset(offsetKey),
+      azanAdjustMin: getAzanAdjust(offsetKey),
+    };
+  });
   sunriseTime = data.timings.Sunrise ? parseTime(to12h(data.timings.Sunrise)) : null;
   document.getElementById('gregDate').textContent =
     `${data.date.gregorian.weekday.en}, ${data.date.gregorian.day} ${data.date.gregorian.month.en} ${data.date.gregorian.year}`;
@@ -645,12 +902,13 @@ function applyTimings(data) {
   }
   firstRender = true;
   lastCurIdx = null;
+  lastLeaveIdx = null;
   render();
   if (!renderTimer) renderTimer = setInterval(render, 1000);
 }
 
 function render() {
-  const now = new Date();
+  const now = nowAtLocation();
   if (dateKey(now) !== renderDateKey) { fetchTimings(); return; }
   if (!prayers.length) return;
 
@@ -668,16 +926,24 @@ function render() {
   const curStatus = curIdx === -1 ? null
     : now < times[curIdx].leaveHome ? 'active'
     : now < times[curIdx].urgentEnd ? 'urgent'
-    : (curIdx === 0 && sunriseTime && now < sunriseTime) ? 'grace'
+    : (prayers[curIdx].offsetKey !== 'Jumuah' && now < times[curIdx].graceEnd) ? 'grace'
     : 'over';
 
   if (firstRender) {
     lastCurIdx = curIdx;
+    lastLeaveIdx = (curStatus === 'urgent' || curStatus === 'grace' || curStatus === 'over') ? curIdx : null;
     firstRender = false;
-  } else if (curIdx !== lastCurIdx && curIdx !== -1) {
-    playAzanAlert();
-    notifyAzan(prayers[curIdx].name, formatTime(times[curIdx].leaveHome), formatTime(times[curIdx].jamat));
-    lastCurIdx = curIdx;
+  } else {
+    if (curIdx !== lastCurIdx && curIdx !== -1) {
+      playAzanAlert();
+      notifyAzan(prayers[curIdx].name, formatTime(times[curIdx].leaveHome), formatTime(times[curIdx].jamat));
+      lastCurIdx = curIdx;
+    }
+    if (curStatus === 'urgent' && curIdx !== -1 && curIdx !== lastLeaveIdx) {
+      playLeaveAlert();
+      notifyLeave(prayers[curIdx].name, formatTime(times[curIdx].leaveHome), formatTime(times[curIdx].jamat));
+      lastLeaveIdx = curIdx;
+    }
   }
 
   const nextIdx = times.findIndex(t => now < t.azan);
@@ -695,7 +961,7 @@ function render() {
         const pillText = now < jamat ? 'Leave now' : 'Jamat';
         pill = `<span class="status-pill red">${pillText}</span>`;
       }
-      else if (curStatus === 'grace') { rowClass = 'window-amber'; pill = '<span class="status-pill amber">Til sunrise</span>'; }
+      else if (curStatus === 'grace') { rowClass = 'window-amber'; pill = '<span class="status-pill amber">2nd Jamat</span>'; }
       else { rowClass = 'passed'; }
     } else if (i === nextIdx && curStatus !== 'active' && curStatus !== 'urgent' && curStatus !== 'grace') {
       rowClass = 'window-next';
@@ -704,11 +970,18 @@ function render() {
     const row = document.createElement('div');
     row.className = 'prayer-row' + (rowClass ? ' ' + rowClass : '');
     row.innerHTML = `
-      <div class="prayer-name">${p.name} <button class="offset-tag" onclick="editOffset('${p.name}')" title="Edit jamat gap">+${p.offset}m</button>${pill}</div>
+      <div class="prayer-name">${p.name} <button class="offset-tag" onclick="editOffset('${p.offsetKey}')" title="Edit jamat gap">+${p.offset}m</button>${pill}</div>
       <div class="time-col"><span class="col-label">Azan</span>${formatTime(azan)}</div>
       <div class="leave-col"><span class="col-label">Leave</span>${formatTime(leaveHome)}<div class="jamat-sub">Jamat ${formatTime(jamat)}</div></div>
     `;
     container.appendChild(row);
+
+    if (i === 0 && sunriseTime) {
+      const sunRow = document.createElement('div');
+      sunRow.className = 'sunrise-row' + (rowClass === 'passed' ? ' passed' : '');
+      sunRow.innerHTML = `<span>Sunrise</span><span>${formatTime(sunriseTime)}</span>`;
+      container.appendChild(sunRow);
+    }
   });
 
   // Hero
@@ -729,7 +1002,7 @@ function render() {
     heroLabel.textContent = 'Time until';
     if (nextIdx === -1) {
       heroP.textContent = "Fajr (tomorrow)";
-      heroT.textContent = prayers[0].azan;
+      heroT.textContent = formatTime(times[0].azan);
       const tom = new Date(times[0].azan);
       tom.setDate(tom.getDate() + 1);
       formatCountdown(cd, tom - now);
@@ -788,13 +1061,23 @@ function playAzanAlert() {
   } catch (e) { /* audio unavailable, ignore */ }
 }
 
+function playLeaveAlert() {
+  try {
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    const t0 = ctx.currentTime;
+    playBeep(ctx, t0, 660, 0.18);
+    playBeep(ctx, t0 + 0.3, 660, 0.18);
+  } catch (e) { /* audio unavailable, ignore */ }
+}
+
 // ─── Browser notifications ───
 function updateNotifBtn() {
   const btn = document.getElementById('notifBtn');
   if (!('Notification' in window)) { btn.hidden = true; return; }
   const enabled = Notification.permission === 'granted' && localStorage.getItem('namaz_notify') !== 'off';
   btn.textContent = enabled ? '🔔' : '🔕';
-  btn.title = enabled ? 'Prayer notifications on — tap to turn off' : 'Turn on prayer notifications';
+  btn.title = enabled ? 'Prayer notifications on, tap to turn off' : 'Turn on prayer notifications';
 }
 
 async function toggleNotifications() {
@@ -815,7 +1098,15 @@ function notifyAzan(name, leaveTimeStr, jamatTimeStr) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   if (localStorage.getItem('namaz_notify') === 'off') return;
   try {
-    new Notification(name + ' — Azan time', { body: `Leave by ${leaveTimeStr} · Jamat at ${jamatTimeStr}`, icon: 'icon-192.png' });
+    new Notification(name + ' - Azan time', { body: `Leave by ${leaveTimeStr} · Jamat at ${jamatTimeStr}`, icon: 'icon-192.png' });
+  } catch (e) { /* ignore */ }
+}
+
+function notifyLeave(name, leaveTimeStr, jamatTimeStr) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (localStorage.getItem('namaz_notify') === 'off') return;
+  try {
+    new Notification(name + ' - Time to leave', { body: `Jamat at ${jamatTimeStr}`, icon: 'icon-192.png' });
   } catch (e) { /* ignore */ }
 }
 
@@ -825,11 +1116,22 @@ function openLocationPicker() {
   document.getElementById('citySearch').value = '';
   document.getElementById('searchResults').innerHTML = '';
   document.getElementById('locationError').hidden = true;
-  document.getElementById('methodSelect').value = String(methodId);
-  document.getElementById('travelInput').value = travelMin;
+  renderFavorites();
 }
 function closeLocationPicker() {
   document.getElementById('locationModal').hidden = true;
+}
+
+// ─── Settings ───
+function openSettings() {
+  document.getElementById('settingsModal').hidden = false;
+  document.getElementById('methodSelect').value = String(methodId);
+  document.getElementById('highLatSelect').value = highLatMethod;
+  document.getElementById('hijriAdjustInput').value = hijriAdjust;
+  document.getElementById('travelInput').value = travelMin;
+}
+function closeSettings() {
+  document.getElementById('settingsModal').hidden = true;
 }
 
 function onMethodChange() {
@@ -923,11 +1225,15 @@ if (localStorage.getItem('theme') === 'light') {
   document.documentElement.setAttribute('data-theme', 'light');
 }
 
-// Init location label, method dropdown, notification button, and kick off the first fetch
+// Init location label, method/high-lat dropdowns, notification button, and kick off the first fetch
 document.getElementById('locationLabel').innerHTML = formatLocationLabel(place);
 document.getElementById('methodSelect').innerHTML =
   METHODS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
 document.getElementById('methodSelect').value = String(methodId);
+document.getElementById('highLatSelect').innerHTML =
+  HIGH_LAT_METHODS.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+document.getElementById('highLatSelect').value = highLatMethod;
+document.getElementById('hijriAdjustInput').value = hijriAdjust;
 document.getElementById('travelInput').value = travelMin;
 updateNotifBtn();
 fetchTimings();
