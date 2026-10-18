@@ -309,6 +309,14 @@
     font-size: 18px; font-weight: 700; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
   }
+  .volume-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .volume-slider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+  .volume-slider.loud { accent-color: var(--red-text); }
+  .volume-value {
+    min-width: 52px; text-align: right; font-size: 13px; font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .volume-value.loud { color: var(--red-text); }
   .search-results { display: flex; flex-direction: column; gap: 2px; }
   .search-result-item {
     width: 100%; text-align: left; padding: 10px 12px; border-radius: 8px;
@@ -444,6 +452,13 @@
       </div>
       <p class="muted setting-hint">The Islamic date can be off by a day depending on where the moon was sighted. Bump this +1 or −1 if yours looks wrong.</p>
 
+      <div class="modal-section-label">Alert volume</div>
+      <div class="volume-row">
+        <input class="volume-slider" id="volumeSlider" type="range" min="0" max="1000" step="10" oninput="onVolumeInput()" onchange="playAzanAlert()" aria-label="Alert volume">
+        <span class="volume-value" id="volumeValue">100%</span>
+      </div>
+      <p class="muted setting-hint">Past 100% the beeps get pushed into distortion so they come out much louder and harsher, all the way up to 1000% if you really can't miss it. Your device's own volume still caps everything.</p>
+
       <div class="modal-section-label">Travel time to mosque (minutes)</div>
       <div class="stepper">
         <button class="step-btn" onclick="stepTravel(-1)" aria-label="Decrease travel time">−</button>
@@ -514,7 +529,7 @@
         <li><strong>Sunrise</strong><span class="muted">Shown under Fajr, for reference.</span></li>
         <li><strong>Jumu'ah on Fridays</strong><span class="muted">On Fridays, Dhuhr is replaced by Jumu'ah with its own azan-to-jamat gap (tap it to edit) to account for the khutbah. Its window just ends when jamat passes, no second-jamat amber.</span></li>
         <li><strong>Location &amp; favorites</strong><span class="muted">Tap the location name (top left) to search any city, use your current location, or star it to save as a favorite for quick switching later.</span></li>
-        <li><strong>⚙️ Settings</strong><span class="muted">Calculation method, high-latitude rule (for far-north/south locations), Hijri date adjustment, and travel time to the mosque all live here.</span></li>
+        <li><strong>⚙️ Settings</strong><span class="muted">Calculation method, high-latitude rule (for far-north/south locations), Hijri date adjustment, alert volume (up to an absurd 1000%), and travel time to the mosque all live here.</span></li>
         <li><strong>Install the app</strong><span class="muted">Use your browser's "Install app" option (desktop) or "Add to Home Screen" (mobile) to add Namaz Times as its own icon with offline support.</span></li>
       </ul>
     </div>
@@ -1025,11 +1040,53 @@ function formatCountdown(el, ms) {
 
 // ─── Azan alert sound: three synthesized beeps, no audio files ───
 let audioCtx;
+let masterGain;
+let volumePct = loadVolume();
+
+function loadVolume() {
+  const v = parseInt(localStorage.getItem('namaz_volume'), 10);
+  return Number.isFinite(v) && v >= 0 && v <= 1000 ? v : 100;
+}
+function onVolumeInput() {
+  volumePct = parseInt(document.getElementById('volumeSlider').value, 10) || 0;
+  localStorage.setItem('namaz_volume', String(volumePct));
+  if (masterGain) masterGain.gain.value = masterGainValue();
+  updateVolumeLabel();
+}
+function updateVolumeLabel() {
+  const loud = volumePct > 100;
+  document.getElementById('volumeSlider').value = volumePct;
+  document.getElementById('volumeSlider').classList.toggle('loud', loud);
+  const label = document.getElementById('volumeValue');
+  label.textContent = volumePct === 0 ? 'Muted' : volumePct + '%';
+  label.classList.toggle('loud', loud);
+}
+
+// Beeps run through a master gain into a tanh soft-clipper. Up to 100% the
+// clipper is effectively transparent; past that the boosted signal saturates
+// toward a square wave, which is far louder to the ear without ever exceeding
+// full scale (so the browser doesn't just hard-clip it into crackle).
+// The WaveShaper clamps its input to ±1, so the gain is pre-scaled down by
+// CLIP_HEADROOM and the curve scales it back up inside the tanh.
+const CLIP_HEADROOM = 10;
+function masterGainValue() { return volumePct / 100 / CLIP_HEADROOM; }
+function makeSoftClipCurve() {
+  const n = 4096, curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) curve[i] = Math.tanh(((i / (n - 1)) * 2 - 1) * CLIP_HEADROOM);
+  return curve;
+}
+
 function ensureAudioCtx() {
   if (!audioCtx) {
     const Ctx = window.AudioContext || window.webkitAudioContext;
     if (!Ctx) return null;
     audioCtx = new Ctx();
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = masterGainValue();
+    const clipper = audioCtx.createWaveShaper();
+    clipper.curve = makeSoftClipCurve();
+    clipper.oversample = '4x';
+    masterGain.connect(clipper).connect(audioCtx.destination);
   }
   if (audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
@@ -1045,7 +1102,7 @@ function playBeep(ctx, startTime, freq, duration) {
   gain.gain.setValueAtTime(0, startTime);
   gain.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
   gain.gain.linearRampToValueAtTime(0, startTime + duration);
-  osc.connect(gain).connect(ctx.destination);
+  osc.connect(gain).connect(masterGain);
   osc.start(startTime);
   osc.stop(startTime + duration + 0.02);
 }
@@ -1129,6 +1186,7 @@ function openSettings() {
   document.getElementById('highLatSelect').value = highLatMethod;
   document.getElementById('hijriAdjustInput').value = hijriAdjust;
   document.getElementById('travelInput').value = travelMin;
+  updateVolumeLabel();
 }
 function closeSettings() {
   document.getElementById('settingsModal').hidden = true;
@@ -1235,6 +1293,7 @@ document.getElementById('highLatSelect').innerHTML =
 document.getElementById('highLatSelect').value = highLatMethod;
 document.getElementById('hijriAdjustInput').value = hijriAdjust;
 document.getElementById('travelInput').value = travelMin;
+updateVolumeLabel();
 updateNotifBtn();
 fetchTimings();
 
